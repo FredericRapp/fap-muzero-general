@@ -19,6 +19,12 @@ import replay_buffer
 import self_play
 import shared_storage
 import trainer
+# import os
+# import sys
+# sys.path.insert(0, os.path.join(os.getcwd(), '..'))
+from games.autoqfm import MuZeroConfig
+from games.autoqfm import Game
+
 
 
 class MuZero:
@@ -36,21 +42,21 @@ class MuZero:
     Example:
         >>> muzero = MuZero("cartpole")
         >>> muzero.train()
-        >>> muzero.test(render=True)
+        >>> muzero.test(render=False) -> for AutoQFM RL
     """
 
     def __init__(self, game_name, config=None, split_resources_in=1):
         # Load the game and the config from the module with the game name
-        try:
-            game_module = importlib.import_module("games." + game_name)
-            self.Game = game_module.Game
-            self.config = game_module.MuZeroConfig()
-        except ModuleNotFoundError as err:
-            print(
-                f'{game_name} is not a supported game name, try "cartpole" or refer to the documentation for adding a new game.'
-            )
-            raise err
-
+        # try:
+        #     game_module = importlib.import_module("games." + game_name)
+        #     self.Game = game_module.Game
+        #     self.config = game_module.MuZeroConfig()
+        # except ModuleNotFoundError as err:
+        #     print(
+        #         f'{game_name} is not a supported game name, try "cartpole" or refer to the documentation for adding a new game.'
+        #     )
+        #     raise err
+        self.Game = game_name
         # Overwrite the config
         if config:
             if type(config) is dict:
@@ -63,7 +69,6 @@ class MuZero:
                         )
             else:
                 self.config = config
-
         # Fix random generator seed
         numpy.random.seed(self.config.seed)
         torch.manual_seed(self.config.seed)
@@ -92,9 +97,10 @@ class MuZero:
         self.num_gpus = total_gpus / split_resources_in
         if 1 < self.num_gpus:
             self.num_gpus = math.floor(self.num_gpus)
-
-        ray.init(num_gpus=total_gpus, ignore_reinit_error=True)
-
+        print('hola')
+        #ray.init(num_gpus=total_gpus, ignore_reinit_error=True, local_mode=True)
+        ray.init(num_gpus=total_gpus, ignore_reinit_error=True, local_mode=True, include_dashboard=False)
+        print('que tal')
         # Checkpoint and replay buffer used to initialize workers
         self.checkpoint = {
             "weights": None,
@@ -367,7 +373,7 @@ class MuZero:
         self.shared_storage_worker = None
 
     def test(
-        self, render=True, opponent=None, muzero_player=None, num_tests=1, num_gpus=0
+        self, render=False, opponent=None, muzero_player=None, num_tests=1, num_gpus=0
     ):
         """
         Test the model in a dedicated thread.
@@ -617,96 +623,8 @@ def load_model_menu(muzero, game_name):
         checkpoint_path=checkpoint_path,
         replay_buffer_path=replay_buffer_path,
     )
-
-
-if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        # Train directly with: python muzero.py cartpole
-        muzero = MuZero(sys.argv[1])
-        muzero.train()
-    elif len(sys.argv) == 3:
-        # Train directly with: python muzero.py cartpole '{"lr_init": 0.01}'
-        config = json.loads(sys.argv[2])
-        muzero = MuZero(sys.argv[1], config)
-        muzero.train()
-    else:
-        print("\nWelcome to MuZero! Here's a list of games:")
-        # Let user pick a game
-        games = [
-            filename.stem
-            for filename in sorted(list((pathlib.Path.cwd() / "games").glob("*.py")))
-            if filename.name != "abstract_game.py"
-        ]
-        for i in range(len(games)):
-            print(f"{i}. {games[i]}")
-        choice = input("Enter a number to choose the game: ")
-        valid_inputs = [str(i) for i in range(len(games))]
-        while choice not in valid_inputs:
-            choice = input("Invalid input, enter a number listed above: ")
-
-        # Initialize MuZero
-        choice = int(choice)
-        game_name = games[choice]
-        muzero = MuZero(game_name)
-
-        while True:
-            # Configure running options
-            options = [
-                "Train",
-                "Load pretrained model",
-                "Diagnose model",
-                "Render some self play games",
-                "Play against MuZero",
-                "Test the game manually",
-                "Hyperparameter search",
-                "Exit",
-            ]
-            print()
-            for i in range(len(options)):
-                print(f"{i}. {options[i]}")
-
-            choice = input("Enter a number to choose an action: ")
-            valid_inputs = [str(i) for i in range(len(options))]
-            while choice not in valid_inputs:
-                choice = input("Invalid input, enter a number listed above: ")
-            choice = int(choice)
-            if choice == 0:
-                muzero.train()
-            elif choice == 1:
-                load_model_menu(muzero, game_name)
-            elif choice == 2:
-                muzero.diagnose_model(30)
-            elif choice == 3:
-                muzero.test(render=True, opponent="self", muzero_player=None)
-            elif choice == 4:
-                muzero.test(render=True, opponent="human", muzero_player=0)
-            elif choice == 5:
-                env = muzero.Game()
-                env.reset()
-                env.render()
-
-                done = False
-                while not done:
-                    action = env.human_to_action()
-                    observation, reward, done = env.step(action)
-                    print(f"\nAction: {env.action_to_string(action)}\nReward: {reward}")
-                    env.render()
-            elif choice == 6:
-                # Define here the parameters to tune
-                # Parametrization documentation: https://facebookresearch.github.io/nevergrad/parametrization.html
-                muzero.terminate_workers()
-                del muzero
-                budget = 20
-                parallel_experiments = 2
-                lr_init = nevergrad.p.Log(lower=0.0001, upper=0.1)
-                discount = nevergrad.p.Log(lower=0.95, upper=0.9999)
-                parametrization = nevergrad.p.Dict(lr_init=lr_init, discount=discount)
-                best_hyperparameters = hyperparameter_search(
-                    game_name, parametrization, budget, parallel_experiments, 20
-                )
-                muzero = MuZero(game_name, best_hyperparameters)
-            else:
-                break
-            print("\nDone")
-
     ray.shutdown()
+muzero = MuZero(game_name=Game, config=MuZeroConfig())
+# muzero = MuZero(game_name="autoqfm", config=MuZeroConfig())
+# muzero.train()
+    #ray.shutdown()
