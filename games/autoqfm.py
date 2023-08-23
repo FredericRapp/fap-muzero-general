@@ -1,6 +1,6 @@
 import numpy as np
 # takes packages files from the specified folder
-# import os
+import os
 # import sys
 # sys.path.insert(0, os.path.join(os.getcwd(), '..','..'))
 
@@ -47,6 +47,7 @@ num_actions = len(actions)
 # Environment for reinforcement training
 import gym
 from gym import spaces
+from gym.utils import seeding
 from scipy.linalg import eigh
 import scipy
 from scipy.linalg import sqrtm
@@ -86,6 +87,7 @@ class KernelPropertiyEnv(gym.Env):
         self.best_overall_fm = ""
         self.training_data  = training_data
         self.training_labels = training_labels
+        #self.seed()
         self.seed = 42
         # Dictionary for string to integer labels
         self.action_dic={}
@@ -100,7 +102,7 @@ class KernelPropertiyEnv(gym.Env):
         self._num_features = num_features
 
         print('Lets goooo AutoQFM!')
-
+        #print('legal autoqfm actions:', self.legal_actions())
     def reset(self):
         """
         Reset function of the environment
@@ -129,7 +131,7 @@ class KernelPropertiyEnv(gym.Env):
         Function that performs an action and returns the reward and the resulting
         feature-map as observation space
         """
-        print('doing a step in the environment')
+
         self.steps_done += 1
         
         pred_error = 1e6
@@ -174,7 +176,7 @@ class KernelPropertiyEnv(gym.Env):
             else:
                 # reward improvement of the prediction error bound
                 if pred_error <= (self.best_pred_error-0.01) and pred_error <= (self.last_pred_error-0.01) and self.last_pred_error != 0.0:
-                    #print("better prediction error bound!",self.fm_str,pred_error, self.best_pred_error, self.last_pred_error, self.steps_done)
+                    print("better prediction error bound!",self.fm_str,pred_error, self.best_pred_error, self.steps_done)
                     self.best_fm_str = self.fm_str
                     self.best_pred_error = pred_error
                     # change here! more reward for improvements in prediction error than kta! 
@@ -182,7 +184,7 @@ class KernelPropertiyEnv(gym.Env):
 
                     # Reward for surpassing overall best prediction error
                     if pred_error < self.best_overall_pred_error:
-                        reward_overall_best = 50.0  # You can adjust the reward value
+                        reward_overall_best = 200.0  # You can adjust the reward value
                         self.best_overall_pred_error = pred_error
                         self.best_overall_fm = self.fm_str
                         print('best overall prediction error and FM:', self.best_overall_pred_error, self.best_overall_fm)
@@ -308,6 +310,23 @@ class KernelPropertiyEnv(gym.Env):
                 i=i+1
         return observation
     
+    def legal_actions(self):
+        """
+        Should return the legal actions at each turn, if it is not available, it can return
+        the whole action space. At each turn, the game have to be able to handle one of returned actions.
+
+        Returns:
+            An array of integers, subset of the action space.
+        """
+        return list(range(len(actions)))  # Return all actions as legal
+    # def seed(self, seed=None):
+    #     self.np_random, seed = seeding.np_random(seed)
+    #     return [seed]
+
+# from stable_baselines3.common.env_checker import check_env
+# env = KernelPropertiyEnv(training_data=X_train, training_labels=Y_train, num_qubits=num_qubits,
+#                          num_features=4)
+# check_env(env)
 
 import datetime
 import pathlib
@@ -316,8 +335,8 @@ import torch
 from games.abstract_game import AbstractGame
 
 logdir = 'first_aqfm_muzero_run/results'
-# if not os.path.exists(logdir):
-#     os.makedirs(logdir)
+if not os.path.exists(logdir):
+    os.makedirs(logdir)
 
 
 class MuZeroConfig:
@@ -331,14 +350,15 @@ class MuZeroConfig:
 
 
         ### Game
-        self.observation_shape = (1, 1, max_num_gates)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
+        #self.observation_shape = (1, 1, max_num_gates)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
+        self.observation_shape = (1, 1, 1)
         self.action_space = list(range(len(actions)))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(1))  # List of players. You should only edit the length
         self.stacked_observations = 0  # Number of previous observations and previous actions to add to the current observation
 
         # Evaluate
         self.muzero_player = 0  # Turn Muzero begins to play (0: MuZero plays first, 1: MuZero plays second)
-        self.opponent = None  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
+        self.opponent = "random"  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
 
 
 
@@ -384,7 +404,8 @@ class MuZeroConfig:
         self.fc_policy_layers = [16]  # Define the hidden layers in the policy network
 
 
-
+        # if not os.path.exists(logdir):
+        #     os.makedirs(logdir)
         ### Training
         self.results_path = pathlib.Path(logdir).resolve().parents[1] / "results" / pathlib.Path(logdir).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
@@ -445,8 +466,8 @@ class Game(AbstractGame):
     def __init__(self, seed=None):
         self.env = KernelPropertiyEnv(training_data=X_train, training_labels=Y_train, num_qubits=num_qubits,
                          num_features=num_qubits)
-        if seed is not None:
-            self.env.seed(seed)
+        # if seed is not None:
+        #     self.env.seed(seed)
 
     def step(self, action):
         """
@@ -459,7 +480,47 @@ class Game(AbstractGame):
             The new observation, the reward and a boolean if the game has ended.
         """
         observation, reward, done, _ = self.env.step(action)
-        return np.array([[observation]]), reward, done
+        #return np.array([[observation]]), reward, done
+        #print('observation:', observation)
+        return np.array([[[observation]]]), reward, done
+
+    def legal_actions(self):
+        """
+        Should return the legal actions at each turn, if it is not available, it can return
+        the whole action space. At each turn, the game have to be able to handle one of returned actions.
+
+        For complex game where calculating legal moves is too long, the idea is to define the legal actions
+        equal to the action space but to return a negative reward if the action is illegal.
+
+        Returns:
+            An array of integers, subset of the action space.
+        """
+
+        return self.env.legal_actions()
+
+    def reset(self):
+        """
+        Reset the game for a new game.
+
+        Returns:
+            Initial observation of the game.
+        """
+        return np.array([[[self.env.reset()]]])
+
+    def close(self):
+        """
+        Properly close the game.
+        """
+        pass
+
+    def to_play(self):
+        """
+        Return the current player.
+
+        Returns:
+            The current player, it should be an element of the players list in the config.
+        """
+        return 0
 
     def legal_actions(self):
         """
@@ -474,18 +535,8 @@ class Game(AbstractGame):
         """
         pass
 
-    def reset(self):
+    def render(self):
         """
-        Reset the game for a new game.
-
-        Returns:
-            Initial observation of the game.
-        """
-        return np.array([[self.env.reset()]])
-
-    def close(self):
-        """
-        Properly close the game.
+        Display the game observation.
         """
         pass
-
