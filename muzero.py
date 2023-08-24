@@ -625,8 +625,8 @@ def load_model_menu(muzero, game_name):
     ray.shutdown()
 
 #print('opponent:', MuZeroConfig().opponent)
-#muzero = MuZero(game_name=Game, config=MuZeroConfig())
+muzero = MuZero(game_name=Game, config=MuZeroConfig())
 #print('opponent:', muzero.config.opponent)
 # muzero = MuZero(game_name="autoqfm", config=MuZeroConfig())
-#muzero.train()
+muzero.train()
     #ray.shutdown()

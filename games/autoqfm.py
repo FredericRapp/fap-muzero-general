@@ -66,22 +66,24 @@ class KernelPropertiyEnv(gym.Env):
         self.action_space = spaces.Discrete(len(actions))
 
         # Observations feature map converted to integer string
-        self.observation_space = spaces.Dict({
-            'fm':spaces.Box(low=0, high=len(actions)-1,
-                                            shape=(max_num_gates,),dtype=int),
+        self.observation_space = spaces.Box(low=0, high=len(actions)-1,
+                                            shape=(max_num_gates,),dtype=int)
+        # spaces.Dict({
+        #     'fm':spaces.Box(low=0, high=len(actions)-1,
+        #                                     shape=(max_num_gates,),dtype=int),
 
             # the other part of the observation space are the properties of our quantum kernel 
             # kernel target alignment
             # kernel variance -> indicator for exponential concentration
-            'var_kernel': spaces.Box(low=0, high=1000,
-                                            shape=(1,),dtype=float),
+            # 'var_kernel': spaces.Box(low=0, high=1000,
+            #                                 shape=(1,),dtype=float),
 
-            # prediction error bound
-            'pred_error': spaces.Box(low=0, high=1e10,
-                                            shape=(1,),dtype=float),
+            # # prediction error bound
+            # 'pred_error': spaces.Box(low=0, high=1e10,
+            #                                 shape=(1,),dtype=float),
 
-            'best_overall_pred_error': spaces.Box(low=0, high=1e10, shape=(1,), dtype=float),
-        })
+            # 'best_overall_pred_error': spaces.Box(low=0, high=1e10, shape=(1,), dtype=float),
+        #})
 
         self.best_overall_pred_error = 1e10
         self.best_overall_fm = ""
@@ -118,11 +120,12 @@ class KernelPropertiyEnv(gym.Env):
         self.last_pred_error = 0.0 
         self.best_pred_error = 1e6
         self.reward = 0.0
-        self.observations = {'fm':self.text_to_int(self.fm_str),
-                        'var_kernel':np.array([10.0]),  
-                        'pred_error':np.array([1e6]), 
-                        'best_overall_pred_error':np.array([self.best_overall_pred_error]),         
-                       }
+        self.observations = self.text_to_int(self.fm_str)
+        #{'fm':self.text_to_int(self.fm_str),
+                        # 'var_kernel':np.array([10.0]),  
+                        # 'pred_error':np.array([1e6]), 
+                        # 'best_overall_pred_error':np.array([self.best_overall_pred_error]),         
+                       #}
 
         return self.observations
 
@@ -139,18 +142,18 @@ class KernelPropertiyEnv(gym.Env):
         punish_exp_conc = 0.0
         reward_pred_error = 0.0
         punish_x = 0.0 
-        #punish_action = 0.0
-        reward_short = 0.0
+        punish_action = 0.0
         reward_overall_best = 0.0
 
 
         # Add gates to the feature map
         self.fm_str = self.fm_str + actions[action] + "-"
 
-        # if action == self.last_action and self.steps_done > 1:
-        #     # Punish same action in a row
-        #     punish_action = -25.0
-        #     print('Two same actions in a row!')
+        print('step in the AQGM envi with respective feature map:', self.steps_done, self.fm_str)
+        if action == self.last_action and self.steps_done > 1:
+            # Punish same action in a row
+            punish_action = -25.0
+            print('Two same actions in a row!')
 
         
         if "(x)" not in self.fm_str:
@@ -166,7 +169,7 @@ class KernelPropertiyEnv(gym.Env):
 
             pred_error = self.prediction_error_bound(k=q_kernel_matrix, y=self.training_labels)
             pred_error = np.real_if_close(pred_error, tol=1e-7)
-
+            #print('prediction error bound in a NORMAL step:', pred_error, self.steps_done)
             # Calculate the kernel variance -> indicator for exponential concentration
             var_kernel = self.matrix_variance_exclude_diagonal(q_kernel_matrix)
 
@@ -175,6 +178,7 @@ class KernelPropertiyEnv(gym.Env):
                 punish_exp_conc = -100.0
             else:
                 # reward improvement of the prediction error bound
+                
                 if pred_error <= (self.best_pred_error-0.01) and pred_error <= (self.last_pred_error-0.01) and self.last_pred_error != 0.0:
                     print("better prediction error bound!",self.fm_str,pred_error, self.best_pred_error, self.steps_done)
                     self.best_fm_str = self.fm_str
@@ -193,21 +197,23 @@ class KernelPropertiyEnv(gym.Env):
 
              
         # probably the split of the reward in that way makes no sense because both of them dont happen at the same time anyway
-        self.reward =  punish_exp_conc + reward_pred_error + punish_x + reward_overall_best
+        self.reward =  punish_exp_conc + reward_pred_error + punish_x + reward_overall_best + punish_action
 
         self.last_action = action
         # Create observation integer array
-        self.observations = {'fm':self.text_to_int(self.fm_str),
-                            'var_kernel':np.array([var_kernel]),
-                            'pred_error':np.array([pred_error]),
-                            'best_overall_pred_error':np.array([self.best_overall_pred_error]),}
+        self.observations = self.text_to_int(self.fm_str)
+        #{'fm':self.text_to_int(self.fm_str),
+                            # 'var_kernel':np.array([var_kernel]),
+                            # 'pred_error':np.array([pred_error]),
+                            # 'best_overall_pred_error':np.array([self.best_overall_pred_error]),
+                            #}
 
         # If too many steps are done, finish this environment
         if self.steps_done >= max_steps:
             self.done = True
 
         # If the feature map is to long, finish this environment
-        if np.count_nonzero(self.observations['fm']) >= max_num_gates:
+        if np.count_nonzero(self.observations) >= max_num_gates:
             self.done = True
         info = {}
         # Return featuremap as observation, current reward for action, done (=true if environment is done)
@@ -334,9 +340,9 @@ import torch
 
 from games.abstract_game import AbstractGame
 
-logdir = 'first_aqfm_muzero_run/results'
-if not os.path.exists(logdir):
-    os.makedirs(logdir)
+logdir = 'second_autoqfm_muzero_run/results'
+# if not os.path.exists(logdir):
+#     os.makedirs(logdir)
 
 
 class MuZeroConfig:
@@ -350,22 +356,22 @@ class MuZeroConfig:
 
 
         ### Game
-        #self.observation_shape = (1, 1, max_num_gates)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
-        self.observation_shape = (1, 1, 1)
+        self.observation_shape = (1, 1, max_num_gates)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
+        #self.observation_shape = (1, 1, 1)
         self.action_space = list(range(len(actions)))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(1))  # List of players. You should only edit the length
         self.stacked_observations = 0  # Number of previous observations and previous actions to add to the current observation
 
         # Evaluate
         self.muzero_player = 0  # Turn Muzero begins to play (0: MuZero plays first, 1: MuZero plays second)
-        self.opponent = "random"  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
+        self.opponent = None  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
 
 
 
         ### Self-Play
         self.num_workers = 1  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
-        self.max_moves = 100  # Maximum number of moves if game is not finished before
+        self.max_moves = 10  # Maximum number of moves if game is not finished before
         self.num_simulations = 10  # Number of future moves self-simulated
         self.discount = 0.997  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
@@ -382,8 +388,8 @@ class MuZeroConfig:
 
         ### Network
         self.network = "resnet"  # "resnet" / "fullyconnected"
-        self.support_size = 13  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
-        
+        self.support_size = 10  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
+        # think about support size value
         # Residual Network
         self.downsample = False  # Downsample observations before representation network, False / "CNN" (lighter) / "resnet" (See paper appendix Network Architecture)
         self.blocks = 1  # Number of blocks in the ResNet
@@ -391,9 +397,9 @@ class MuZeroConfig:
         self.reduced_channels_reward = 2  # Number of channels in reward head
         self.reduced_channels_value = 2  # Number of channels in value head
         self.reduced_channels_policy = 2  # Number of channels in policy head
-        self.resnet_fc_reward_layers = []  # Define the hidden layers in the reward head of the dynamic network
-        self.resnet_fc_value_layers = []  # Define the hidden layers in the value head of the prediction network
-        self.resnet_fc_policy_layers = []  # Define the hidden layers in the policy head of the prediction network
+        self.resnet_fc_reward_layers = [2]  # Define the hidden layers in the reward head of the dynamic network
+        self.resnet_fc_value_layers = [2]  # Define the hidden layers in the value head of the prediction network
+        self.resnet_fc_policy_layers = [2]  # Define the hidden layers in the policy head of the prediction network
 
         # Fully Connected Network
         self.encoding_size = 8
@@ -407,12 +413,12 @@ class MuZeroConfig:
         # if not os.path.exists(logdir):
         #     os.makedirs(logdir)
         ### Training
-        self.results_path = pathlib.Path(logdir).resolve().parents[1] / "results" / pathlib.Path(logdir).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
+        self.results_path = pathlib.Path(logdir).resolve().parents[1] / "autoqfm/results" / pathlib.Path(logdir).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
         self.training_steps = 1000  # Total number of training steps (ie weights update according to a batch)
-        self.batch_size = 64  # Number of parts of games to train on at each training step
+        self.batch_size = 16  # Number of parts of games to train on at each training step
         self.checkpoint_interval = 10  # Number of training steps before using the model for self-playing
-        self.value_loss_weight = 1  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
+        self.value_loss_weight = 0.25  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
         self.train_on_gpu = torch.cuda.is_available()  # Train on GPU if available
 
         self.optimizer = "Adam"  # "Adam" or "SGD". Paper uses SGD
@@ -420,17 +426,17 @@ class MuZeroConfig:
         self.momentum = 0.9  # Used only if optimizer is SGD
 
         # Exponential learning rate schedule
-        self.lr_init = 0.02  # Initial learning rate
-        self.lr_decay_rate = 0.8  # Set it to 1 to use a constant learning rate
+        self.lr_init = 0.003#0.02  # Initial learning rate
+        self.lr_decay_rate = 1#0.8  # Set it to 1 to use a constant learning rate
         self.lr_decay_steps = 1000
 
 
 
         ### Replay Buffer           
         #                       -> FAP changed from 500 to 10
-        self.replay_buffer_size = 10  # Number of self-play games to keep in the replay buffer
-        self.num_unroll_steps = 10  # Number of game moves to keep for every batch element
-        self.td_steps = 10  # Number of steps in the future to take into account for calculating the target value
+        self.replay_buffer_size = 50  # Number of self-play games to keep in the replay buffer
+        self.num_unroll_steps = 20  # Number of game moves to keep for every batch element
+        self.td_steps = 20  # Number of steps in the future to take into account for calculating the target value
         #           FAP changed to False
         self.PER = False  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
         self.PER_alpha = 0.5  # How much prioritization is used, 0 corresponding to the uniform case, paper suggests 1
@@ -482,7 +488,7 @@ class Game(AbstractGame):
         observation, reward, done, _ = self.env.step(action)
         #return np.array([[observation]]), reward, done
         #print('observation:', observation)
-        return np.array([[[observation]]]), reward, done
+        return np.array([[observation]]), reward, done
 
     def legal_actions(self):
         """
@@ -505,7 +511,7 @@ class Game(AbstractGame):
         Returns:
             Initial observation of the game.
         """
-        return np.array([[[self.env.reset()]]])
+        return np.array([[self.env.reset()]])
 
     def close(self):
         """
@@ -521,19 +527,6 @@ class Game(AbstractGame):
             The current player, it should be an element of the players list in the config.
         """
         return 0
-
-    def legal_actions(self):
-        """
-        Should return the legal actions at each turn, if it is not available, it can return
-        the whole action space. At each turn, the game have to be able to handle one of returned actions.
-
-        For complex game where calculating legal moves is too long, the idea is to define the legal actions
-        equal to the action space but to return a negative reward if the action is illegal.
-
-        Returns:
-            An array of integers, subset of the action space.
-        """
-        pass
 
     def render(self):
         """

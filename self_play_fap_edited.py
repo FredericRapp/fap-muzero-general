@@ -17,6 +17,7 @@ class SelfPlay:
     def __init__(self, initial_checkpoint, Game, config, seed):
         self.config = config
         self.game = Game(seed)
+
         # Fix random generator seed
         numpy.random.seed(seed)
         torch.manual_seed(seed)
@@ -107,7 +108,7 @@ class SelfPlay:
         self.close_game()
 
     def play_game(
-        self, temperature, temperature_threshold, render, opponent, muzero_player
+        self, temperature, temperature_threshold, opponent, muzero_player, render=False
     ):
         """
         Play one game with actions based on the Monte Carlo tree search at each moves.
@@ -140,10 +141,11 @@ class SelfPlay:
 
                 # Choose the action
                 if opponent == "self" or muzero_player == self.game.to_play():
+                    print('hello hello')
                     root, mcts_info = MCTS(self.config).run(
                         self.model,
                         stacked_observations,
-                        self.game.legal_actions(),
+                        self.game.env.legal_actions(),
                         self.game.to_play(),
                         True,
                     )
@@ -192,7 +194,7 @@ class SelfPlay:
             root, mcts_info = MCTS(self.config).run(
                 self.model,
                 stacked_observations,
-                self.game.legal_actions(),
+                self.game.env.legal_actions(),
                 self.game.to_play(),
                 True,
             )
@@ -202,21 +204,23 @@ class SelfPlay:
                 f"Player {self.game.to_play()} turn. MuZero suggests {self.game.action_to_string(self.select_action(root, 0))}"
             )
             return self.game.human_to_action(), root
-        elif opponent == "expert":
-            return self.game.expert_agent(), None
-        elif opponent == "random":
+        # elif opponent == "expert":
+        #     return self.game.expert_agent(), None
+        # elif opponent == "random":
+        else:
+            #print('legal actions: ', self.game.env.legal_actions())
             assert (
-                self.game.legal_actions()
-            ), f"Legal actions should not be an empty array. Got {self.game.legal_actions()}."
-            assert set(self.game.legal_actions()).issubset(
+                self.game.env.legal_actions()
+            ), f"Legal actions should not be an empty array. Got {self.game.env.legal_actions()}."
+            assert set(self.game.env.legal_actions()).issubset(
                 set(self.config.action_space)
             ), "Legal actions should be a subset of the action space."
 
-            return numpy.random.choice(self.game.legal_actions()), None
-        else:
-            raise NotImplementedError(
-                'Wrong argument: "opponent" argument should be "self", "human", "expert" or "random"'
-            )
+            return numpy.random.choice(self.game.env.legal_actions()), None
+        # else:
+        #     raise NotImplementedError(
+        #         'Wrong argument: "opponent" argument should be "self", "human", "expert" or "random"'
+        #     )
 
     @staticmethod
     def select_action(node, temperature):
@@ -255,7 +259,6 @@ class MCTS:
 
     def __init__(self, config):
         self.config = config
-        print('performing monte carlo tree search')
 
     def run(
         self,
