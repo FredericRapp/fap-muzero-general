@@ -125,7 +125,7 @@ class Trainer:
         """
         Perform one training step.
         """
-
+        print('performing one training step...')
         (
             observation_batch,
             action_batch,
@@ -297,4 +297,5 @@ class Trainer:
         policy_loss = (-target_policy * torch.nn.LogSoftmax(dim=1)(policy_logits)).sum(
             1
         )
+        #print('values_loss, reward_loss, policy_loss: ', value_loss, reward_loss, policy_loss)
         return value_loss, reward_loss, policy_loss

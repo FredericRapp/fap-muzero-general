@@ -41,6 +41,37 @@ actions = [         # action integer number
     'S',            #15
     'T'             #16
     ]
+#alternative action set 
+# actions = [         # action integer number
+#     "",             #0
+#     "H",            #1
+#     f"Rx(x;=(x),{{x}})",        #2
+#     f"Ry(x;=(x),{{x}})",        #3
+#     f"Rz(x;=(x),{{x}})",        #4
+#     f"Rx(x;=np.pi/2*(x),{{x}})",        #5
+#     f"Ry(x;=np.pi/2*(x),{{x}})",        #6
+#     f"Rz(x;=np.pi/2*(x),{{x}})",        #7
+#     f"Rx(x;=np.pi*(x),{{x}})",        #5
+#     f"Ry(x;=np.pi*(x),{{x}})",        #6
+#     f"Rz(x;=np.pi*(x),{{x}})",        #7
+#     f"Rx(x;=1.5*np.pi*(x),{{x}})",        #5
+#     f"Ry(x;=1.5*np.pi*(x),{{x}})",        #6
+#     f"Rz(x;=1.5*np.pi*(x),{{x}})",        #7
+#     f"Rx(x;=2*np.pi*(x),{{x}})",        #5
+#     f"Ry(x;=2*np.pi*(x),{{x}})",        #6
+#     f"Rz(x;=2*np.pi*(x),{{x}})",        #7
+#     #"cz", #8
+#     #"cy",  #9
+#     'cx',           #10    
+#     f'Rx(x;=np.pi/2*np.cos(x),{{x}})', #11 # changed arccos to cos due to no rescaling
+#     f'Rx(x;=np.pi*np.cos(x),{{x}})', #11 # changed arccos to cos due to no rescaling
+#     f'Rx(x;=2*np.pi*np.cos(x),{{x}})', #11 # changed arccos to cos due to no rescaling
+#     'X',            #12
+#     'Y',            #13
+#     'Z',            #14
+#     'S',            #15
+#     'T'             #16
+#     ]
 num_actions = len(actions)
 
 
@@ -119,6 +150,8 @@ class KernelPropertiyEnv(gym.Env):
         self.best_spec_quotient = 0.0
         self.last_pred_error = 0.0 
         self.best_pred_error = 1e6
+        # self.last_KTA = 0.0
+        # self.best_KTA = 0.0
         self.reward = 0.0
         self.observations = self.text_to_int(self.fm_str)
         #{'fm':self.text_to_int(self.fm_str),
@@ -134,7 +167,6 @@ class KernelPropertiyEnv(gym.Env):
         Function that performs an action and returns the reward and the resulting
         feature-map as observation space
         """
-
         self.steps_done += 1
         
         pred_error = 1e6
@@ -144,6 +176,7 @@ class KernelPropertiyEnv(gym.Env):
         punish_x = 0.0 
         punish_action = 0.0
         reward_overall_best = 0.0
+        #reward_improved_kta = 0.0
 
 
         # Add gates to the feature map
@@ -169,6 +202,9 @@ class KernelPropertiyEnv(gym.Env):
 
             pred_error = self.prediction_error_bound(k=q_kernel_matrix, y=self.training_labels)
             pred_error = np.real_if_close(pred_error, tol=1e-7)
+
+            # Calculate the kernel target alignment
+            #kta = self.compute_kernel_target_alignment(q_kernel_matrix, labels=self.training_labels)
             #print('prediction error bound in a NORMAL step:', pred_error, self.steps_done)
             # Calculate the kernel variance -> indicator for exponential concentration
             var_kernel = self.matrix_variance_exclude_diagonal(q_kernel_matrix)
@@ -192,12 +228,18 @@ class KernelPropertiyEnv(gym.Env):
                         self.best_overall_pred_error = pred_error
                         self.best_overall_fm = self.fm_str
                         print('best overall prediction error and FM:', self.best_overall_pred_error, self.best_overall_fm)
-
+                # reward if the found kta is better then the current best kta to motivate the agent to find a better solution
+                # if kta >= (self.best_KTA+0.1) and kta >= (self.last_KTA+0.1) and self.last_KTA != 0.0:
+                #     print("better KTA!",kta, self.best_KTA)
+                #     #self.best_fm_str = self.fm_str
+                #     self.best_KTA = kta
+                #     reward_improved_kta = 50.0
             self.last_pred_error = pred_error
+            #self.last_KTA = kta
 
              
         # probably the split of the reward in that way makes no sense because both of them dont happen at the same time anyway
-        self.reward =  punish_exp_conc + reward_pred_error + punish_x + reward_overall_best + punish_action
+        self.reward =  punish_exp_conc + reward_pred_error + punish_x + reward_overall_best + punish_action #+ reward_improved_kta
 
         self.last_action = action
         # Create observation integer array
@@ -340,7 +382,7 @@ import torch
 
 from games.abstract_game import AbstractGame
 
-logdir = 'second_autoqfm_muzero_run/results'
+logdir = 'autoqfm_muzero_run/results'
 # if not os.path.exists(logdir):
 #     os.makedirs(logdir)
 
@@ -372,7 +414,7 @@ class MuZeroConfig:
         self.num_workers = 1  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
         self.max_moves = 10  # Maximum number of moves if game is not finished before
-        self.num_simulations = 10  # Number of future moves self-simulated
+        self.num_simulations = 20  # Number of future moves self-simulated
         self.discount = 0.997  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
@@ -381,13 +423,14 @@ class MuZeroConfig:
         self.root_exploration_fraction = 0.25
 
         # UCB formula
-        self.pb_c_base = 19652
+        # self.pb_c_base = 19652
+        # self.pb_c_init = 1.25
+        self.pb_c_base = 2
         self.pb_c_init = 1.25
 
 
-
         ### Network
-        self.network = "resnet"  # "resnet" / "fullyconnected"
+        self.network = "fullyconnected"  # "resnet" / "fullyconnected"
         self.support_size = 10  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
         # think about support size value
         # Residual Network
@@ -397,9 +440,9 @@ class MuZeroConfig:
         self.reduced_channels_reward = 2  # Number of channels in reward head
         self.reduced_channels_value = 2  # Number of channels in value head
         self.reduced_channels_policy = 2  # Number of channels in policy head
-        self.resnet_fc_reward_layers = [2]  # Define the hidden layers in the reward head of the dynamic network
-        self.resnet_fc_value_layers = [2]  # Define the hidden layers in the value head of the prediction network
-        self.resnet_fc_policy_layers = [2]  # Define the hidden layers in the policy head of the prediction network
+        self.resnet_fc_reward_layers = [16]  # Define the hidden layers in the reward head of the dynamic network
+        self.resnet_fc_value_layers = [16]  # Define the hidden layers in the value head of the prediction network
+        self.resnet_fc_policy_layers = [16]  # Define the hidden layers in the policy head of the prediction network
 
         # Fully Connected Network
         self.encoding_size = 8
@@ -415,7 +458,7 @@ class MuZeroConfig:
         ### Training
         self.results_path = pathlib.Path(logdir).resolve().parents[1] / "autoqfm/results" / pathlib.Path(logdir).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
-        self.training_steps = 1000  # Total number of training steps (ie weights update according to a batch)
+        self.training_steps = 100000  # Total number of training steps (ie weights update according to a batch)
         self.batch_size = 16  # Number of parts of games to train on at each training step
         self.checkpoint_interval = 10  # Number of training steps before using the model for self-playing
         self.value_loss_weight = 0.25  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
@@ -426,7 +469,7 @@ class MuZeroConfig:
         self.momentum = 0.9  # Used only if optimizer is SGD
 
         # Exponential learning rate schedule
-        self.lr_init = 0.003#0.02  # Initial learning rate
+        self.lr_init = 0.01#0.02  # Initial learning rate
         self.lr_decay_rate = 1#0.8  # Set it to 1 to use a constant learning rate
         self.lr_decay_steps = 1000
 

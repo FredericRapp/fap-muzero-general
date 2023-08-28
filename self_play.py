@@ -178,7 +178,7 @@ class SelfPlay:
                 game_history.observation_history.append(observation)
                 game_history.reward_history.append(reward)
                 game_history.to_play_history.append(self.game.to_play())
-
+        #print('weights of fully connected network:', self.model.get_weights())
         return game_history
 
     def close_game(self):
@@ -240,7 +240,8 @@ class SelfPlay:
                 visit_count_distribution
             )
             action = numpy.random.choice(actions, p=visit_count_distribution)
-
+        print('visit counts: ', visit_counts)
+        print('action selected: ', action)
         return action
 
 
@@ -342,6 +343,7 @@ class MCTS:
             )
             value = models.support_to_scalar(value, self.config.support_size).item()
             reward = models.support_to_scalar(reward, self.config.support_size).item()
+            
             node.expand(
                 self.config.action_space,
                 virtual_to_play,

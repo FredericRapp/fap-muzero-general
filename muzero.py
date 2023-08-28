@@ -98,7 +98,7 @@ class MuZero:
         if 1 < self.num_gpus:
             self.num_gpus = math.floor(self.num_gpus)
         #ray.init(num_gpus=total_gpus, ignore_reinit_error=True, local_mode=True)
-        ray.init(num_gpus=total_gpus, ignore_reinit_error=True, local_mode=True, include_dashboard=False)
+        #ray.init(num_gpus=total_gpus, ignore_reinit_error=True, local_mode=True, include_dashboard=True, num_cpus=6)
         
         # Checkpoint and replay buffer used to initialize workers
         self.checkpoint = {
@@ -624,9 +624,5 @@ def load_model_menu(muzero, game_name):
     )
     ray.shutdown()
 
-#print('opponent:', MuZeroConfig().opponent)
 muzero = MuZero(game_name=Game, config=MuZeroConfig())
-#print('opponent:', muzero.config.opponent)
-# muzero = MuZero(game_name="autoqfm", config=MuZeroConfig())
 muzero.train()
-    #ray.shutdown()

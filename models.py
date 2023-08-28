@@ -2,7 +2,7 @@ import math
 from abc import ABC, abstractmethod
 
 import torch
-
+ 
 
 class MuZeroNetwork:
     def __new__(cls, config):
@@ -142,6 +142,7 @@ class MuZeroFullyConnectedNetwork(AbstractNetwork):
         encoded_state_normalized = (
             encoded_state - min_encoded_state
         ) / scale_encoded_state
+        #print('representation function output: ', encoded_state_normalized)
         return encoded_state_normalized
 
     def dynamics(self, encoded_state, action):
