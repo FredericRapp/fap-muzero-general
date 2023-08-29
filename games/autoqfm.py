@@ -40,7 +40,7 @@ actions = [         # action integer number
     'Z',            #14
     'S',            #15
     'T'             #16
-    ]
+   ]
 #alternative action set 
 # actions = [         # action integer number
 #     "",             #0
@@ -425,7 +425,7 @@ class MuZeroConfig:
         # UCB formula
         # self.pb_c_base = 19652
         # self.pb_c_init = 1.25
-        self.pb_c_base = 2
+        self.pb_c_base = 2   
         self.pb_c_init = 1.25
 
 
@@ -469,7 +469,7 @@ class MuZeroConfig:
         self.momentum = 0.9  # Used only if optimizer is SGD
 
         # Exponential learning rate schedule
-        self.lr_init = 0.01#0.02  # Initial learning rate
+        self.lr_init = 0.1#0.02  # Initial learning rate
         self.lr_decay_rate = 1#0.8  # Set it to 1 to use a constant learning rate
         self.lr_decay_steps = 1000
 
@@ -477,7 +477,7 @@ class MuZeroConfig:
 
         ### Replay Buffer           
         #                       -> FAP changed from 500 to 10
-        self.replay_buffer_size = 50  # Number of self-play games to keep in the replay buffer
+        self.replay_buffer_size = 100  # Number of self-play games to keep in the replay buffer
         self.num_unroll_steps = 20  # Number of game moves to keep for every batch element
         self.td_steps = 20  # Number of steps in the future to take into account for calculating the target value
         #           FAP changed to False
@@ -514,7 +514,7 @@ class Game(AbstractGame):
 
     def __init__(self, seed=None):
         self.env = KernelPropertiyEnv(training_data=X_train, training_labels=Y_train, num_qubits=num_qubits,
-                         num_features=num_qubits)
+                         num_features=num_components)
         # if seed is not None:
         #     self.env.seed(seed)
 

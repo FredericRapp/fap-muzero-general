@@ -125,7 +125,7 @@ class Trainer:
         """
         Perform one training step.
         """
-        print('performing one training step...')
+        #print('performing one training step...')
         (
             observation_batch,
             action_batch,
