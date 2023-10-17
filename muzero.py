@@ -19,8 +19,8 @@ import replay_buffer
 import self_play
 import shared_storage
 import trainer
-from games.autoqfm_dkr import MuZeroConfig
-from games.autoqfm_dkr import Game
+from games.autoqfm_california_sub import MuZeroConfig
+from games.autoqfm_california_sub import Game
 
 
 
@@ -611,5 +611,5 @@ def load_model_menu(muzero, game_name):
     )
     ray.shutdown()
 
-muzero = MuZero(game_name=Game, config=MuZeroConfig())
-muzero.train()
+# muzero = MuZero(game_name=Game, config=MuZeroConfig())
+# muzero.train()
