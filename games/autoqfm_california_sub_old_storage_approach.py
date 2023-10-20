@@ -15,7 +15,7 @@ from sklearn.kernel_ridge import KernelRidge
 # y = housing.target
 # X = MinMaxScaler().fit_transform(X)
 # Generate a random classification problem with 20 samples
-X, y = make_classification(n_samples=30, n_features=8, n_informative=3, n_classes=2, random_state=0)
+X, y = make_classification(n_samples=30, n_features=8, n_informative=3, n_classes=2, random_state=1234)
 
 # # Define the desired number of data points
 # desired_num_samples = 400  # Adjust this as needed
@@ -130,7 +130,8 @@ class KernelPropertiyEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=len(actions)-1,
                                             shape=(max_num_gates,),dtype=int)
         self.storage_dict = result_dict
-        self.storage_manager = StorageManager(result_dict)
+        if not isinstance(self.storage_dict, dict):
+            raise ValueError("storage_dict must be a dictionary")
         
 
         # self.best_overall_pred_error = 1e10
@@ -162,6 +163,7 @@ class KernelPropertiyEnv(gym.Env):
         Reset function of the environment
         Resets the feature map to inital state
         """
+
         self.fm_str = ""
         self.best_fm_str = "" 
         self.last_action = ""
@@ -169,6 +171,12 @@ class KernelPropertiyEnv(gym.Env):
         self.steps_done = 0
         self.best_spec_quotient = 0.0
         self.last_pred_error = 0.0 
+        #self.best_pred_error = 1e6
+        # Restore values from storage_dict
+        # if self.best_fm_str:
+        #     self.best_fm_str = self.storage_dict["best_fm_str"][-1]
+        # if self.best_pred_error < np.inf:
+        #     self.best_pred_error = self.storage_dict["best_pred_error"][-1]
 
 
         self.reward = 0.0
@@ -208,8 +216,14 @@ class KernelPropertiyEnv(gym.Env):
             # Calculate the quantum kernel and validate its properties
             q_kernel_matrix = self.return_kernel_matrix(x_train=self.training_data)
 
+            #geom_diff, g_tra = self.geometric_difference(self.classical_kernel_matrix, q_kernel_matrix)
+
             pred_error = self.prediction_error_bound(k=q_kernel_matrix, y=self.training_labels)
             pred_error = np.real_if_close(pred_error, tol=1e-7)
+
+            # Calculate the kernel target alignment
+            #kta = self.compute_kernel_target_alignment(q_kernel_matrix, labels=self.training_labels)
+            #print('prediction error bound in a NORMAL step:', pred_error, self.steps_done)
             # Calculate the kernel variance -> indicator for exponential concentration
             var_kernel = self.matrix_variance_exclude_diagonal(q_kernel_matrix)
 
@@ -219,7 +233,7 @@ class KernelPropertiyEnv(gym.Env):
             else:
                 # reward improvement of the prediction error bound
                 
-                if pred_error <= self.best_pred_error:
+                if pred_error <= (self.best_pred_error-0.01) and pred_error <= (self.last_pred_error-0.01) and self.last_pred_error != 0.0:
                     print("better prediction error bound!",pred_error, self.best_pred_error,self.fm_str, self.steps_done)
                     self.best_fm_str = self.fm_str
                     self.best_pred_error = pred_error
@@ -227,10 +241,26 @@ class KernelPropertiyEnv(gym.Env):
                     reward_pred_error = 100.0
                     self.storage_dict["best_fm_str"].append(self.best_fm_str)
                     self.storage_dict["best_pred_error"].append(pred_error)
-                    # Ensure any numpy arrays are converted to lists before serializing to JSON
+                    # self.storage_dict = {
+                    #     'best_fm_str': [entry for entry in self.storage_dict['best_fm_str'] if not isinstance(entry, list)],
+                    #     'best_pred_error': [entry for entry in self.storage_dict['best_pred_error'] if not isinstance(entry, list)]
+                    # }
+                    print('append happened!: \n', self.storage_dict["best_pred_error"])
+
+                    # self.storage_dict['best_fm_str'] = [entry for entry in self.storage_dict['best_fm_str'] if not isinstance(entry, list)]
+                    # self.storage_dict['best_pred_error'] = [entry for entry in self.storage_dict['best_pred_error'] if not isinstance(entry, list)]
+
+                    # Serialize and save the updated dictionary to a JSON file
+                    # Convert Numpy arrays to lists before saving
                     self.storage_dict["best_pred_error"] = [entry.tolist() if isinstance(entry, np.ndarray) else entry for entry in self.storage_dict["best_pred_error"]]
-                    print('append happened!:', self.storage_dict["best_pred_error"])
-                    self.storage_manager.update_storage_dict(self)
+
+                    with open("stupid_tests.json", "w") as json_file:
+                        storage_dict = {
+                            "best_fm_str": self.storage_dict["best_fm_str"],
+                            "best_pred_error": self.storage_dict["best_pred_error"]
+                        }
+                        json.dump(storage_dict, json_file)
+                        json_file.write("\n")
                 else: 
                     punish_action = -1.0
             
@@ -267,6 +297,7 @@ class KernelPropertiyEnv(gym.Env):
         quantum_kernel = FidelityKernel(lfm,Executor("statevector_simulator"),initial_parameters=param_ini)
         
         quantum_kernel.assign_parameters(param_ini)
+        # Do Kernel Ridge Regression
         
         kernel_matrix = quantum_kernel.evaluate(x_train)
         return kernel_matrix
@@ -345,6 +376,8 @@ import torch
 from games.abstract_game import AbstractGame
 
 logdir = 'autoqfm_muzero_run_cali/results'
+# if not os.path.exists(logdir):
+#     os.makedirs(logdir)
 
 
 class MuZeroConfig:
@@ -354,6 +387,8 @@ class MuZeroConfig:
 
         self.seed = 42  # Seed for numpy, torch and the game
         self.max_num_gpus = None  # Fix the maximum number of GPUs to use. It's usually faster to use a single GPU (set it to 1) if it has enough memory. None will use every GPUs available
+
+
 
         ### Game
         self.observation_shape = (1, 1, max_num_gates)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
@@ -474,11 +509,11 @@ class Game(AbstractGame):
     """
 
     def __init__(self, seed=None):
-        
+        storage_dict = {"best_fm_str": list(), "best_pred_error": list()}
+        #self.storage_dict_reset = storage_dict
         self.env = KernelPropertiyEnv(training_data=X_train, training_labels=Y_train, num_qubits=num_qubits,
-                         num_features=8, result_dict={"best_fm_str": list(), "best_pred_error": list()})
-        #self.storage_manager = StorageManager(self.env)
-
+                         num_features=8, result_dict=storage_dict)
+        
 
     def step(self, action):
         """
@@ -491,8 +526,16 @@ class Game(AbstractGame):
             The new observation, the reward and a boolean if the game has ended.
         """
         observation, reward, done, _ = self.env.step(action)
-        #self.storage_manager.update_storage_dict() 
-        #self.update_storage_dict()
+        #return np.array([[observation]]), reward, done
+        #print('observation:', observation)
+        # self.storage_dict_step["best_fm_str"].append(self.env.storage_dict["best_fm_str"])
+        # self.storage_dict_step["best_pred_error"].append(self.env.storage_dict["best_pred_error"])
+        # self.storage_dict_step = {
+        #             'best_fm_str': [entry for entry in self.storage_dict_step['best_fm_str'] if not isinstance(entry, list)],
+        #             'best_pred_error': [entry for entry in self.storage_dict_step['best_pred_error'] if not isinstance(entry, list)]
+        #         }
+        # print("storage dict of the game / agent at step: \n", self.storage_dict_step)
+        # print("storage dict of the environment step: \n", self.env.storage_dict)
         return np.array([[observation]]), reward, done
 
     def legal_actions(self):
@@ -516,6 +559,21 @@ class Game(AbstractGame):
         Returns:
             Initial observation of the game.
         """
+        # self.storage_dict_reset["best_fm_str"].append(self.env.storage_dict["best_fm_str"])
+        # self.storage_dict_reset["best_pred_error"].append(self.env.storage_dict["best_pred_error"])
+        # self.storage_dict_reset["best_pred_error"] = [entry.tolist() if isinstance(entry, np.ndarray) else entry for entry in self.storage_dict_reset["best_pred_error"]]
+
+        # with open("stupid_tests.json", "w") as json_file:
+        #     storage_dict = {
+        #         # "best_fm_str": self.storage_dict_reset["best_fm_str"],
+        #         # "best_pred_error": self.storage_dict_reset["best_pred_error"]
+        #         "best_fm_str": self.env.storage_dict["best_fm_str"],
+        #         "best_pred_error": self.env.storage_dict["best_pred_error"]
+        #     }
+        #     json.dump(storage_dict, json_file)
+        #     json_file.write("\n")
+        #print("storage dict of the game / agent at reset: \n", self.storage_dict)
+        #print("storage dict of the environment: \n", self.env.storage_dict)
         return np.array([[self.env.reset()]])
 
     def close(self):
@@ -554,27 +612,4 @@ class Game(AbstractGame):
         print("best circuit:", best_circuit)
 
         return loaded_data
-    
-class StorageManager:
-    def __init__(self, result_dict):
-        #self.env = env
-        #self.storage_dict = {"best_fm_str": list(), "best_pred_error": list()}
-        self.storage_dict = result_dict
-
-    def update_storage_dict(self, env):
-        # Update the storage_dict using data from the environment
-        self.storage_dict["best_fm_str"].extend(env.storage_dict["best_fm_str"])
-        self.storage_dict["best_pred_error"].extend(env.storage_dict["best_pred_error"])
-
-        # Ensure any numpy arrays are converted to lists before serializing to JSON
-        self.storage_dict["best_pred_error"] = [entry.tolist() if isinstance(entry, np.ndarray) else entry for entry in self.storage_dict["best_pred_error"]]
-        print('update happened!:', self.storage_dict["best_pred_error"])
-        # Serialize the updated dictionary to a JSON file
-        with open("stupid_tests.json", "w") as json_file:
-            storage_dict = {
-                "best_fm_str": self.storage_dict["best_fm_str"],
-                "best_pred_error": self.storage_dict["best_pred_error"]
-            }
-            json.dump(storage_dict, json_file)
-            json_file.write("\n")
     

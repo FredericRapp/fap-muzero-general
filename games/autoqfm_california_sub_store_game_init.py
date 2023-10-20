@@ -115,7 +115,7 @@ from scipy.linalg import sqrtm
 from qiskit import Aer
 
 class KernelPropertiyEnv(gym.Env):
-    def __init__(self, training_data, training_labels, num_qubits, num_features, result_dict):
+    def __init__(self, training_data, training_labels, num_qubits, num_features, result_dict, storage_manager):
         """
         Initialization function of the environment
         """
@@ -130,7 +130,7 @@ class KernelPropertiyEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=len(actions)-1,
                                             shape=(max_num_gates,),dtype=int)
         self.storage_dict = result_dict
-        self.storage_manager = StorageManager(result_dict)
+        self.storage_manager = storage_manager
         
 
         # self.best_overall_pred_error = 1e10
@@ -162,6 +162,7 @@ class KernelPropertiyEnv(gym.Env):
         Reset function of the environment
         Resets the feature map to inital state
         """
+
         self.fm_str = ""
         self.best_fm_str = "" 
         self.last_action = ""
@@ -207,6 +208,8 @@ class KernelPropertiyEnv(gym.Env):
         else:
             # Calculate the quantum kernel and validate its properties
             q_kernel_matrix = self.return_kernel_matrix(x_train=self.training_data)
+
+            #geom_diff, g_tra = self.geometric_difference(self.classical_kernel_matrix, q_kernel_matrix)
 
             pred_error = self.prediction_error_bound(k=q_kernel_matrix, y=self.training_labels)
             pred_error = np.real_if_close(pred_error, tol=1e-7)
@@ -355,6 +358,8 @@ class MuZeroConfig:
         self.seed = 42  # Seed for numpy, torch and the game
         self.max_num_gpus = None  # Fix the maximum number of GPUs to use. It's usually faster to use a single GPU (set it to 1) if it has enough memory. None will use every GPUs available
 
+
+
         ### Game
         self.observation_shape = (1, 1, max_num_gates)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
         #self.observation_shape = (1, 1, 1)
@@ -474,10 +479,10 @@ class Game(AbstractGame):
     """
 
     def __init__(self, seed=None):
-        
+        result_dict={"best_fm_str": list(), "best_pred_error": list()}
+        self.storage_manager = StorageManager(result_dict)
         self.env = KernelPropertiyEnv(training_data=X_train, training_labels=Y_train, num_qubits=num_qubits,
-                         num_features=8, result_dict={"best_fm_str": list(), "best_pred_error": list()})
-        #self.storage_manager = StorageManager(self.env)
+                         num_features=8, result_dict=result_dict, storage_manager=self.storage_manager)
 
 
     def step(self, action):
@@ -491,8 +496,6 @@ class Game(AbstractGame):
             The new observation, the reward and a boolean if the game has ended.
         """
         observation, reward, done, _ = self.env.step(action)
-        #self.storage_manager.update_storage_dict() 
-        #self.update_storage_dict()
         return np.array([[observation]]), reward, done
 
     def legal_actions(self):
@@ -506,7 +509,7 @@ class Game(AbstractGame):
         Returns:
             An array of integers, subset of the action space.
         """
-
+        
         return self.env.legal_actions()
 
     def reset(self):
