@@ -15,7 +15,7 @@ from sklearn.kernel_ridge import KernelRidge
 # y = housing.target
 # X = MinMaxScaler().fit_transform(X)
 # Generate a random classification problem with 20 samples
-X, y = make_classification(n_samples=30, n_features=8, n_informative=3, n_classes=2, random_state=0)
+X, y = make_classification(n_samples=100, n_features=8, n_informative=3, n_classes=2, random_state=42)
 
 # # Define the desired number of data points
 # desired_num_samples = 400  # Adjust this as needed
@@ -27,10 +27,8 @@ X, y = make_classification(n_samples=30, n_features=8, n_informative=3, n_classe
 # X_subset = X[random_indices]
 # y_subset = y[random_indices]
 # # Split data
-# X_train, X_test, Y_train, Y_test = train_test_split(X_subset, y_subset, test_size=0.5, random_state=42)
+X_train, X_test, Y_train, Y_test = train_test_split(X, y, test_size=0.4, random_state=42)
 # print(X_train)
-X_train = X 
-Y_train = y
 
 # lets try a QML approach based on a random feature map 
 from squlearn.feature_map.layered_feature_map import LayeredFeatureMap
@@ -42,66 +40,66 @@ max_num_gates = 10
 max_steps = 12
 
 
-actions = [         # action integer number
-    "",             #0
-    "H",            #1
-    f"Rx(x;=(x),{{x}})",        #2
-    f"Ry(x;=(x),{{x}})",        #3
-    f"Rz(x;=(x),{{x}})",        #4
-    f"Rx(p,x;=y*(x),{{y,x}})",        #5
-    f"Ry(p,x;=y*(x),{{y,x}})",        #6
-    f"Rz(p,x;=y*(x),{{y,x}})",        #7
-    #"cz", #8
-    #"cy",  #9
-    'cx',           #10    
-    f'Rx(p,x;=y*np.cos(x),{{y,x}})', #11 # changed arccos to cos due to no rescaling
-    'X',            #12
-    'Y',            #13
-    'Z',            #14
-    'S',            #15
-    'T'             #16
-   ]
-
-
 # actions = [         # action integer number
-#     "",             #2
-#     "H",            #3
-#     r"Rx(x;=(x),{x})",        #2
-#     r"Ry(x;=(x),{x})",        #3
-#     r"Rz(x;=(x),{x})",        #4
-#     r"Rx(x;=np.pi*(x),{x})",        #4
-#     r"Ry(x;=np.pi*(x),{x})",        #5
-#     r"Rz(x;=np.pi*(x),{x})",        #6
-#     'cx',           #13
-#     r'Rx(x;=np.arctan(x),{x})', #14
-#     'X',            #15
-#     'Y',            #16
-#     'Z',            #17
-#     r"Rx(p;=0*p+5/3*np.pi,{p})",        #18
-#     r"Ry(p;=0*p+5/3*np.pi,{p})",       #19
-#     r"Rz(p;=0*p+5/3*np.pi,{p})",       #20
-#     r"crx(p;=0*p+5/3*np.pi,{p})",      #21
-#     r"cry(p;=0*p+5/3*np.pi,{p})",      #22
-#     r"crz(p;=0*p+5/3*np.pi,{p})",      #23
-#     r"Rx(p;=0*p+4/3*np.pi,{p})",        #24
-#     r"Ry(p;=0*p+4/3*np.pi,{p})",        #25
-#     r"Rz(p;=0*p+4/3*np.pi,{p})",        #26
-#     r"crx(p;=0*p+4/3*np.pi,{p})",       #27
-#     r"cry(p;=0*p+4/3*np.pi,{p})",       #28
-#     r"crz(p;=0*p+4/3*np.pi,{p})",       #29
-#     r"Rx(p;=0*p+2/3*np.pi,{p})",         #30
-#     r"Ry(p;=0*p+2/3*np.pi,{p})",         #31
-#     r"Rz(p;=0*p+2/3*np.pi,{p})",         #32
-#     r"crx(p;=0*p+2/3*np.pi,{p})",        #33
-#     r"cry(p;=0*p+2/3*np.pi,{p})",        #34
-#     r"crz(p;=0*p+2/3*np.pi,{p})",        #35
-#     r"Rx(p;=0*p+1/3*np.pi,{p})",         #36
-#     r"Ry(p;=0*p+1/3*np.pi,{p})",         #37
-#     r"Rz(p;=0*p+1/3*np.pi,{p})",         #38
-#     r"crx(p;=0*p+1/3*np.pi,{p})",        #39
-#     r"cry(p;=0*p+1/3*np.pi,{p})",        #40
-#     r"crz(p;=0*p+1/3*np.pi,{p})",        #41
-#     ]
+#     "",             #0
+#     "H",            #1
+#     f"Rx(x;=(x),{{x}})",        #2
+#     f"Ry(x;=(x),{{x}})",        #3
+#     f"Rz(x;=(x),{{x}})",        #4
+#     f"Rx(p,x;=y*(x),{{y,x}})",        #5
+#     f"Ry(p,x;=y*(x),{{y,x}})",        #6
+#     f"Rz(p,x;=y*(x),{{y,x}})",        #7
+#     #"cz", #8
+#     #"cy",  #9
+#     'cx',           #10    
+#     f'Rx(p,x;=y*np.cos(x),{{y,x}})', #11 # changed arccos to cos due to no rescaling
+#     'X',            #12
+#     'Y',            #13
+#     'Z',            #14
+#     'S',            #15
+#     'T'             #16
+#    ]
+
+
+actions = [         # action integer number
+    "",             #2
+    "H",            #3
+    r"Rx(x;=(x),{x})",        #2
+    r"Ry(x;=(x),{x})",        #3
+    r"Rz(x;=(x),{x})",        #4
+    r"Rx(x;=np.pi*(x),{x})",        #4
+    r"Ry(x;=np.pi*(x),{x})",        #5
+    r"Rz(x;=np.pi*(x),{x})",        #6
+    'cx',           #13
+    r'Rx(x;=np.arctan(x),{x})', #14
+    'X',            #15
+    'Y',            #16
+    'Z',            #17
+    r"Rx(p;=0*p+5/3*np.pi,{p})",        #18
+    r"Ry(p;=0*p+5/3*np.pi,{p})",       #19
+    r"Rz(p;=0*p+5/3*np.pi,{p})",       #20
+    r"crx(p;=0*p+5/3*np.pi,{p})",      #21
+    r"cry(p;=0*p+5/3*np.pi,{p})",      #22
+    r"crz(p;=0*p+5/3*np.pi,{p})",      #23
+    r"Rx(p;=0*p+4/3*np.pi,{p})",        #24
+    r"Ry(p;=0*p+4/3*np.pi,{p})",        #25
+    r"Rz(p;=0*p+4/3*np.pi,{p})",        #26
+    r"crx(p;=0*p+4/3*np.pi,{p})",       #27
+    r"cry(p;=0*p+4/3*np.pi,{p})",       #28
+    r"crz(p;=0*p+4/3*np.pi,{p})",       #29
+    r"Rx(p;=0*p+2/3*np.pi,{p})",         #30
+    r"Ry(p;=0*p+2/3*np.pi,{p})",         #31
+    r"Rz(p;=0*p+2/3*np.pi,{p})",         #32
+    r"crx(p;=0*p+2/3*np.pi,{p})",        #33
+    r"cry(p;=0*p+2/3*np.pi,{p})",        #34
+    r"crz(p;=0*p+2/3*np.pi,{p})",        #35
+    r"Rx(p;=0*p+1/3*np.pi,{p})",         #36
+    r"Ry(p;=0*p+1/3*np.pi,{p})",         #37
+    r"Rz(p;=0*p+1/3*np.pi,{p})",         #38
+    r"crx(p;=0*p+1/3*np.pi,{p})",        #39
+    r"cry(p;=0*p+1/3*np.pi,{p})",        #40
+    r"crz(p;=0*p+1/3*np.pi,{p})",        #41
+    ]
 num_actions = len(actions)
 
 
@@ -264,7 +262,7 @@ class KernelPropertiyEnv(gym.Env):
         param_ini = np.random.uniform(-1,1,lfm.num_parameters)
 
         #kernel_matrix = ProjectedQuantumKernel(lfm,Executor("statevector_simulator"),initial_parameters=initial_parameters,gamma=0.25)
-        quantum_kernel = FidelityKernel(lfm,Executor("statevector_simulator"),initial_parameters=param_ini)
+        quantum_kernel = ProjectedQuantumKernel(lfm,Executor("statevector_simulator"),initial_parameters=param_ini)
         
         quantum_kernel.assign_parameters(param_ini)
         
@@ -355,6 +353,8 @@ class MuZeroConfig:
         self.seed = 42  # Seed for numpy, torch and the game
         self.max_num_gpus = None  # Fix the maximum number of GPUs to use. It's usually faster to use a single GPU (set it to 1) if it has enough memory. None will use every GPUs available
 
+
+
         ### Game
         self.observation_shape = (1, 1, max_num_gates)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
         #self.observation_shape = (1, 1, 1)
@@ -415,12 +415,12 @@ class MuZeroConfig:
         # if not os.path.exists(logdir):
         #     os.makedirs(logdir)
         ### Training
-        self.results_path = pathlib.Path(logdir).resolve().parents[1] / "autoqfm_run_1_california_subset/results" / pathlib.Path(logdir).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
+        self.results_path = pathlib.Path(logdir).resolve().parents[1] / "make_classification/results" / pathlib.Path(logdir).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
-        self.training_steps = 500#0000  # Total number of training steps (ie weights update according to a batch)
+        self.training_steps = 100000  # Total number of training steps (ie weights update according to a batch)
         self.batch_size = 32 #instead of 16 # Number of parts of games to train on at each training step
         # changed from 10 to 100
-        self.checkpoint_interval = 2#100  # Number of training steps before using the model for self-playing
+        self.checkpoint_interval = 100  # Number of training steps before using the model for self-playing
         self.value_loss_weight = 0.25  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
         self.train_on_gpu = torch.cuda.is_available()  # Train on GPU if available
 
@@ -570,7 +570,7 @@ class StorageManager:
         self.storage_dict["best_pred_error"] = [entry.tolist() if isinstance(entry, np.ndarray) else entry for entry in self.storage_dict["best_pred_error"]]
         print('update happened!:', self.storage_dict["best_pred_error"])
         # Serialize the updated dictionary to a JSON file
-        with open("stupid_tests.json", "w") as json_file:
+        with open("make_calssif_storage.json", "w") as json_file:
             storage_dict = {
                 "best_fm_str": self.storage_dict["best_fm_str"],
                 "best_pred_error": self.storage_dict["best_pred_error"]

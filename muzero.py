@@ -198,6 +198,7 @@ class MuZero:
             self.logging_loop(
                 num_gpus_per_worker if self.config.selfplay_on_gpu else 0,
             )
+        #print(self.Game.storage_dict)
 
     def logging_loop(self, num_gpus):
         """
